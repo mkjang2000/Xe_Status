@@ -1,0 +1,35 @@
+services:
+  web:
+    build: .
+    image: xe-status:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_PATH: /app/data/status.db
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - status-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    image: xe-status:local
+    build: .
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/status.db
+    cap_add:
+      - NET_RAW
+    volumes:
+      - status-data:/app/data
+volumes:
+  status-data:
