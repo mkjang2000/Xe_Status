@@ -52,14 +52,17 @@ TLS 연결(일반적으로 465)과 STARTTLS(일반적으로 587)를 지원하며
 
 ## 운영 배포
 
-먼저 `.env`에 `NODE_ENV=production`, `APP_ORIGIN=https://status.example.com`을 설정하고 HTTPS 역방향 프록시를 준비합니다. 프로덕션에서는 HTTPS `APP_ORIGIN`이 없으면 서버가 시작하지 않습니다.
+Linux 서버에서는 웹과 워커를 **systemd 서비스**로 실행하는 방식을 기본으로 안내합니다. SSH 접속을 종료해도 계속 실행되고, 부팅 시 시작 및 오류 후 재시작을 지원합니다.
+
+`deploy/systemd/`의 서비스 파일에서 프로젝트 경로·실행 계정·Node 경로를 맞춘 뒤 등록하면, 아래 명령 하나로 웹과 워커를 함께 관리합니다.
 
 ```bash
-npm run build
-# 별도 터미널 또는 프로세스 관리자로 각각 실행
-npm start
-npm run worker
+sudo systemctl enable --now xe-status.target
+sudo systemctl restart xe-status.target
+sudo journalctl -u xe-status-web -u xe-status-worker -f
 ```
+
+**등록 전 준비부터 전체 설치 절차는 [systemd 운영 가이드](devdocs/systemd.md)를 참고하세요.** `.env`의 APP_ORIGIN은 실제 공개 HTTPS 주소여야 합니다. Cloudflare Tunnel을 사용하면 Nginx 없이 호스트의 `http://127.0.0.1:3000`으로 연결할 수 있습니다.
 
 공개 페이지는 `/`, 관리자 화면은 `/admin`입니다. API와 화면은 설정한 같은 origin으로 제공해야 하며 관리자는 HTTPS 주소에서 로그인합니다. 프로덕션 세션 쿠키는 HTTPS에서만 전달됩니다. 개발용 Vite 서버를 운영에 사용하지 않습니다.
 

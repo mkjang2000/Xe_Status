@@ -5,7 +5,7 @@
 - Language: TypeScript; React + Vite frontend, Fastify API, separate Node.js worker
 - Runtime: Node.js 22.12+; package manager: npm; database: SQLite (WAL)
 - Development: `npm run dev`; build: `npm run build`; unit/integration tests: `npm test`; browser tests: `npm run test:e2e`
-- Production: `npm start` and `npm run worker`, or Docker Compose
+- Production: systemd `xe-status.target` (web + worker), or Docker Compose
 
 ## Managed Project Structure
 ```text
@@ -26,7 +26,9 @@ web/src/          React public page, administrator interface, forms and styles
   PasswordSettings.tsx Current/new password form and relogin flow
 tests/            API, monitoring and persistence regression tests
   browser/        Playwright public/admin browser checks
+deploy/systemd/  Native Linux web/worker units and a grouped target
 scripts/setup.mjs Generates local environment and credentials without overwriting
+devdocs/systemd.md Native Linux service installation and operation
 devdocs/plans/    Implementation scope and decisions
 devdocs/reviews/  Validation evidence and operational limits
 vite.config.ts    Frontend build and development API proxy

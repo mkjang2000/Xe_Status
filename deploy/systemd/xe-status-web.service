@@ -1,0 +1,26 @@
+[Unit]
+Description=XE Status web and API
+Wants=network-online.target
+After=network-online.target
+PartOf=xe-status.target
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=xe-status
+Group=xe-status
+WorkingDirectory=/opt/xe-status
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --import tsx --env-file=.env server/index.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillSignal=SIGTERM
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xe-status-web

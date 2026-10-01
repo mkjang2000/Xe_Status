@@ -1,0 +1,7 @@
+[Unit]
+Description=XE Status web and monitoring services
+Wants=xe-status-web.service xe-status-worker.service
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
