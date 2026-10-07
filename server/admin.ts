@@ -1,3 +1,5 @@
+import { registerIncidents } from './incidents.js';
+import { registerMonitorManagement } from './monitor-management.js';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { defaultBranding, defaultSmtp } from '../shared/defaults.js';
@@ -11,6 +13,8 @@ function smtpView(settings: SmtpSettings): SmtpView {
   return { ...publicFields, passwordSet: Boolean(password) };
 }
 export function registerAdmin(app: FastifyInstance, db: Db, invalidateStatus: () => void): void {
+  registerIncidents(app, db, invalidateStatus);
+  registerMonitorManagement(app, db, invalidateStatus);
   app.get('/api/admin/monitors', async () => getMonitors(db).map(monitor => asAdminMonitor(db, monitor)));
   app.post('/api/admin/monitors', async (request, reply) => {
     const { count } = db.prepare('SELECT count(*) AS count FROM monitors').get() as { count: number };

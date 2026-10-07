@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3';
 import { test, expect } from '@playwright/test';
 import { defaultBranding, defaultMonitor, defaultSmtp } from '../../shared/defaults.js';
 
@@ -37,13 +38,70 @@ test('administrator configures monitoring and changes the login password', async
   await dialog.getByLabel('조건 1 비교 값').fill('true');
   await dialog.getByRole('button', { name: '서비스 추가', exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText('브라우저 API', { exact: true })).toBeVisible();
+  await expect(page.getByText('브라우저 API', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: '브라우저 API 수정', exact: true }).click();
   await dialog.getByLabel('점검 모드').check();
   await dialog.getByRole('button', { name: '변경 사항 저장' }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByText('점검 중', { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('admin-monitors.png'), fullPage: true });
+  await page.getByRole('button', { name: '브라우저 API 복제', exact: true }).click();
+  await dialog.getByLabel('서비스 이름', { exact: true }).fill('복제 API');
+  await dialog.getByLabel('관리 그룹', { exact: true }).fill('운영');
+  await dialog.getByRole('button', { name: '서비스 추가', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByLabel('모니터 검색', { exact: true }).fill('복제');
+  await expect(page.getByRole('heading', { name: '복제 API', exact: true })).toBeVisible();
+  await page.getByLabel('표시된 모니터 전체 선택', { exact: true }).check();
+  await page.getByRole('button', { name: '선택 재개', exact: true }).click();
+  await expect(page.getByText('변경 사항을 저장했습니다.', { exact: true })).toBeVisible();
+  await page.getByLabel('표시된 모니터 전체 선택', { exact: true }).check();
+  page.once('dialog', d => d.accept());
+  await page.getByRole('button', { name: '선택 보관', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '복제 API', exact: true })).not.toBeVisible();
+  await page.getByLabel('모니터 상태 필터', { exact: true }).selectOption('archived');
+  await expect(page.getByRole('heading', { name: '복제 API', exact: true })).toBeVisible();
+  await page.getByLabel('표시된 모니터 전체 선택', { exact: true }).check();
+  await page.getByRole('button', { name: '선택 복원', exact: true }).click();
+  await expect(page.getByText('복원했습니다. 확인 후 감시를 재개하세요.', { exact: true })).toBeVisible();
+  await page.getByLabel('모니터 상태 필터', { exact: true }).selectOption('active');
+  await page.getByLabel('모니터 검색', { exact: true }).fill('');
+  await expect(page.getByRole('heading', { name: '복제 API', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('admin-management-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const items = await (await page.request.get('/api/admin/monitors')).json();
+  const monitor = items.find((m: { name: string }) => m.name === '브라우저 API');
+  const db = new Database('.playwright/browser.db');
+  const incidentStart = Date.now() - 120000;
+  try {
+    for (let i = 0; i < 27; i++) db.prepare('INSERT INTO incidents(id,monitor_id,monitor_name,started_at,resolved_at,reason) VALUES(?,?,?,?,?,?)')
+      .run(`browser-incident-${i}`, monitor.id, monitor.name, incidentStart - i * 3600000, incidentStart - i * 3600000 + 60000, '연결 시간 초과');
+    db.prepare('INSERT INTO checks(monitor_id,checked_at,outcome,message,interval_seconds) VALUES(?,?,?,?,?)').run(monitor.id, incidentStart, 'down', '연결 시간 초과', 60);
+  } finally { db.close(); }
+  await page.getByRole('button', { name: '장애 이력', exact: true }).click();
+  await expect(page.getByRole('button', { name: '상세 보기', exact: true })).toHaveCount(25);
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await expect(page.getByRole('button', { name: '상세 보기', exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: '이전', exact: true }).click();
+  await page.getByRole('button', { name: '상세 보기', exact: true }).first().click();
+  await expect(dialog.getByText('최초 실패 사유: 연결 시간 초과')).toBeVisible();
+  await dialog.getByLabel('처리 사유', { exact: true }).fill('측정 서버의 일시적인 오류');
+  await dialog.getByRole('button', { name: '오탐으로 정정', exact: true }).click();
+  await expect(dialog.getByText('측정 서버의 일시적인 오류', { exact: true })).toBeVisible();
+  const corrected = await (await page.request.get('/api/admin/incidents/browser-incident-0')).json();
+  expect(corrected.corrections).toHaveLength(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('incident-detail-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  page.once('dialog', d => d.accept('실제 장애로 재확인'));
+  await dialog.getByRole('button', { name: '정정 취소', exact: true }).click();
+  await expect(dialog.getByText('취소된 정정', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: '닫기', exact: true }).last().click();
+
 
   await page.getByRole('button', { name: /디자인/ }).click();
   await page.getByLabel('페이지 이름', { exact: true }).fill('나의 서비스 상태');
@@ -66,7 +124,7 @@ test('administrator configures monitoring and changes the login password', async
 
   await page.goto('/');
   await expect(page.getByRole('link', { name: '나의 서비스 상태 상태 페이지' })).toBeVisible();
-  await expect(page.getByText('브라우저 API', { exact: true })).toBeVisible();
+  await expect(page.getByText('브라우저 API', { exact: true }).first()).toBeVisible();
   await expect(page.getByLabel('브라우저 API 최근 30일 상태').locator('.history-bar')).toHaveCount(30);
   await page.screenshot({ path: info.outputPath('public-configured.png'), fullPage: true });
   await page.goto('/admin');

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { getMonitor, getMonitors, getSetting, type Db } from '../server/db.js';
+import { getMonitor, getMonitors, getSetting, setSetting, type Db } from '../server/db.js';
 import { defaultSmtp } from '../shared/defaults.js';
 import type { CheckResult, MonitorRecord } from '../shared/types.js';
 
@@ -12,7 +12,7 @@ export function isStale(monitor: MonitorRecord, now: number): boolean {
 
 export function claimMonitors(db: Db, now: number, limit = 5): MonitorRecord[] {
   return db.transaction(() => {
-    const due = getMonitors(db).filter(m => m.enabled && m.nextCheckAt <= now && m.leaseUntil <= now)
+    const due = getMonitors(db).filter(m => m.enabled && !m.archived && m.nextCheckAt <= now && m.leaseUntil <= now)
       .sort((a, b) => a.nextCheckAt - b.nextCheckAt).slice(0, limit);
     return due.map(monitor => {
       const leaseUntil = now + Math.max(1, Math.min(60, monitor.timeoutSeconds)) * 1000 + 30_000;
@@ -99,7 +99,7 @@ export function pruneHistory(db: Db, now: number, retentionDays = 90): void {
   const cutoff = now - Math.max(30, retentionDays) * 86_400_000;
   db.transaction(() => {
     db.prepare('DELETE FROM checks WHERE checked_at < ?').run(cutoff);
-    db.prepare('DELETE FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?').run(cutoff);
+    setSetting(db, 'checks_retention_cutoff', Math.max(cutoff, getSetting(db, 'checks_retention_cutoff', 0)));
     db.prepare("DELETE FROM outbox WHERE created_at < ? AND status IN ('sent','failed','cancelled')").run(cutoff);
     db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
   })();

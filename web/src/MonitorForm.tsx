@@ -27,7 +27,7 @@ function parseRule(rule: RuleDraft): JsonRule {
   return { path: rule.path.trim(), operator: rule.operator, value };
 }
 
-export function MonitorForm({ monitor, onSaved, onCancel }: { monitor: AdminMonitor | null; onSaved: () => void; onCancel: () => void }) {
+export function MonitorForm({ monitor, duplicate = false, onSaved, onCancel }: { monitor: AdminMonitor | null; duplicate?: boolean; onSaved: () => void; onCancel: () => void }) {
   const [form, setForm] = useState<MonitorInput>(() => monitor ? { ...monitor } : { ...defaultMonitor, headers: {}, rules: [] });
   const [headers, setHeaders] = useState(JSON.stringify(monitor?.headers ?? {}, null, 2));
   const [rules, setRules] = useState<RuleDraft[]>(() => (monitor?.rules ?? []).map(rule => ({ ...rule, value: typeof rule.value === 'string' ? JSON.stringify(rule.value) : String(rule.value ?? 'null') })));
@@ -46,6 +46,7 @@ export function MonitorForm({ monitor, onSaved, onCancel }: { monitor: AdminMoni
       if (form.timeoutSeconds >= form.intervalSeconds) throw new Error('타임아웃은 검사 주기보다 짧게 설정해 주세요.');
       if (form.kind === 'json' && rules.length === 0) throw new Error('JSON 응답에서 확인할 조건을 하나 이상 추가해 주세요.');
       const payload: MonitorInput = {
+        group: form.group ?? '', archived: duplicate ? false : (form.archived ?? false),
         name: form.name.trim(), description: form.description.trim(), target: form.target.trim(), kind: form.kind,
         intervalSeconds: form.intervalSeconds, timeoutSeconds: form.timeoutSeconds, failureThreshold: form.failureThreshold,
         recoveryThreshold: form.recoveryThreshold, enabled: form.enabled, maintenance: form.maintenance,
@@ -55,7 +56,7 @@ export function MonitorForm({ monitor, onSaved, onCancel }: { monitor: AdminMoni
         rules: form.kind === 'json' ? rules.map(parseRule) : [], sortOrder: form.sortOrder
       };
       setBusy(true);
-      await api(`/admin/monitors${monitor ? `/${monitor.id}` : ''}`, monitor ? 'PUT' : 'POST', payload);
+      await api(`/admin/monitors${monitor && !duplicate ? `/${monitor.id}` : ''}`, monitor && !duplicate ? 'PUT' : 'POST', payload);
       onSaved();
     } catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
@@ -65,6 +66,7 @@ export function MonitorForm({ monitor, onSaved, onCancel }: { monitor: AdminMoni
       {error && <Notice>{error}</Notice>}
       <div className="form-section"><h3>기본 정보</h3><div className="form-grid">
         <Field label="서비스 이름"><input autoFocus required maxLength={100} value={form.name} onChange={e => update('name', e.target.value)} placeholder="예: API 서버" /></Field>
+        <Field label="관리 그룹"><input maxLength={100} value={form.group ?? ''} onChange={e => update('group', e.target.value)} placeholder="예: 운영 서버" /></Field>
         <Field label="표시 순서" hint="작은 숫자부터 표시합니다."><input type="number" min={-1000} max={1000} required value={form.sortOrder} onChange={e => update('sortOrder', Number(e.target.value))} /></Field>
         <Field label="설명 (선택)" wide><input maxLength={500} value={form.description} onChange={e => update('description', e.target.value)} placeholder="공개 페이지에 표시할 짧은 설명" /></Field>
       </div></div>
@@ -87,6 +89,6 @@ export function MonitorForm({ monitor, onSaved, onCancel }: { monitor: AdminMoni
       </div></div>
       <div className="form-section"><h3>운영 설정</h3><Toggle checked={form.enabled} onChange={value => update('enabled', value)} title="모니터링 활성화" description="비활성화하면 검사를 멈추고 미확인으로 표시합니다." /><Toggle checked={form.maintenance} onChange={value => update('maintenance', value)} title="점검 모드" description="검사는 계속하며, 점검 중에는 장애·복구 알림을 보내지 않습니다." />{form.maintenance && <Field label="점검 종료 시각 (선택)" hint="기기의 현지 시간 기준입니다. 비워두면 직접 종료할 때까지 유지됩니다."><input type="datetime-local" value={localDateTime(form.maintenanceUntil)} onChange={e => update('maintenanceUntil', e.target.value ? new Date(e.target.value).getTime() : null)} /></Field>}</div>
     </div>
-    <div className="modal-footer"><button type="button" className="button button-secondary" onClick={onCancel} disabled={busy}>취소</button><button className="button button-primary" disabled={busy}>{busy ? '저장 중…' : monitor ? '변경 사항 저장' : '서비스 추가'}</button></div>
+    <div className="modal-footer"><button type="button" className="button button-secondary" onClick={onCancel} disabled={busy}>취소</button><button className="button button-primary" disabled={busy}>{busy ? '저장 중…' : monitor && !duplicate ? '변경 사항 저장' : '서비스 추가'}</button></div>
   </form>;
 }

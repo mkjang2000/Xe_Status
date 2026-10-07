@@ -28,6 +28,7 @@ const headers = z.record(z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/), z.st
   }, 'HTTP 헤더 값에 지원하지 않는 문자가 포함되어 있습니다.');
 
 export const monitorSchema = z.object({
+  group: trimmed(100).default(''), archived: z.boolean().default(false),
   name: trimmed(100).min(1), description: trimmed(500).default(''), kind: z.enum(['ping', 'http', 'json']),
   target: trimmed(2048).min(1), intervalSeconds: z.number().int().min(15).max(3600).default(defaultMonitor.intervalSeconds),
   timeoutSeconds: z.number().int().min(1).max(60).default(defaultMonitor.timeoutSeconds),

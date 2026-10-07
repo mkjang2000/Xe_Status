@@ -14,7 +14,9 @@ server/           Fastify routes, authentication, persistence and public project
   index.ts        API startup; app.ts wires routes and serves the production SPA
   passwords.ts    Salted password hashing and persistent credential lookup
   db.ts           SQLite schema and encrypted configuration persistence
-  availability.ts Interval-based daily availability calculation
+  availability.ts Interval-based daily availability with correction exclusions
+  incidents.ts    Admin history, fixed correction intervals and audit/revocation
+  monitor-management.ts Atomic bulk operations, archive/restore and ordering
 worker/           Scheduling, probes, state transitions and SMTP outbox delivery
   index.ts        Worker startup; scheduler.ts manages the bounded probe pool
   state.ts        Monitor claims, result persistence and incident transitions
@@ -22,7 +24,10 @@ worker/           Scheduling, probes, state transitions and SMTP outbox delivery
 web/src/          React public page, administrator interface, forms and styles
   main.tsx        Browser entry point
   PublicPage.tsx  Public overview, daily bars and incident history
-  AdminPage.tsx   Login and monitor/branding/SMTP management
+  AdminPage.tsx   Login and administration navigation
+  MonitorManagement.tsx Search, groups, selection, archive and bulk operations
+  IncidentHistory.tsx Paginated incident history, details and corrections
+  CheckHistory.tsx Paginated raw checks and retention notice
   PasswordSettings.tsx Current/new password form and relogin flow
 tests/            API, monitoring and persistence regression tests
   browser/        Playwright public/admin browser checks
@@ -48,7 +53,9 @@ Public UI → sanitized public API → current state and daily history
 
 ## Architecture Notes
 - One server and one worker share a persistent SQLite volume. No Redis required.
-- Unknown time is excluded from availability; maintenance does not stop measurement.
+- Unknown and explicitly corrected time are excluded from availability; maintenance does not stop measurement.
+- Incident summaries and correction audit records persist; raw checks have bounded retention.
+- Archived monitors retain history and stop monitoring/public display; restore leaves them paused.
 - Public API excludes targets, credentials, response bodies and detailed errors.
 - Session cookies and same-origin mutation checks protect administrator routes.
 - Only public network targets are supported. HTTP probes validate DNS and pin connections.

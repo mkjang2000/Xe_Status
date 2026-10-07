@@ -273,3 +273,20 @@ input:disabled { background: #f3f5f8; color: #a2abba; }
 
 .admin-tabs { overflow-x: auto; }
 .admin-tabs button { flex-shrink: 0; }
+
+/* Administration tools wrap at narrow widths without widening the page. */
+.management-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:18px 0; }
+.management-toolbar input:not([type=checkbox]), .management-toolbar select { padding:9px 12px; border:1px solid var(--border, #dce1e8); border-radius:8px; background:white; min-width:0; max-width:100%; }
+.management-toolbar label { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.history-entry { padding:18px 0; border-bottom:1px solid var(--border, #dce1e8); overflow-wrap:anywhere; }
+.history-entry p { margin:8px 0; }
+.history-pager { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0; }
+.managed-monitor { flex-wrap:wrap; }
+.managed-monitor .monitor-actions { flex-wrap:wrap; gap:12px; }
+.managed-monitor .admin-monitor-info { min-width:160px; }
+@media(max-width:600px) { .management-toolbar > input:not([type=checkbox]) { width:100%; } .managed-monitor .monitor-actions { width:100%; } .history-pager { font-size:12px; } }
+
+.management-toolbar input[type=checkbox], .managed-monitor > input[type=checkbox] { width:16px; height:16px; padding:0; flex:0 0 16px; cursor:pointer; }
+.management-toolbar > input:not([type=checkbox]) { flex:1 1 200px; width:auto; }
+.management-toolbar > select { flex:0 1 180px; width:auto; }
+@media(max-width:600px) { .managed-monitor > .admin-monitor-info { flex-basis:calc(100% - 40px); } .managed-monitor > .status-badge { margin-left:27px; } }

@@ -42,6 +42,15 @@ export function openDatabase(path = process.env.DATABASE_PATH || './data/status.
     CREATE INDEX IF NOT EXISTS outbox_monitor_status ON outbox(monitor_id, status);
     CREATE INDEX IF NOT EXISTS incidents_started ON incidents(started_at);
   `);
+  db.exec(`CREATE TABLE IF NOT EXISTS incident_corrections (
+    id TEXT PRIMARY KEY, incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+    started_at INTEGER NOT NULL, ended_at INTEGER NOT NULL, reason TEXT NOT NULL,
+    created_at INTEGER NOT NULL, revoked_at INTEGER, revoke_reason TEXT
+  );
+  CREATE INDEX IF NOT EXISTS corrections_monitor ON incident_corrections(monitor_id, started_at);
+  CREATE INDEX IF NOT EXISTS corrections_incident ON incident_corrections(incident_id);
+  CREATE INDEX IF NOT EXISTS incidents_monitor_time ON incidents(monitor_id, started_at);`);
   return db;
 }
 interface MonitorRow {
@@ -57,13 +66,14 @@ export function getMonitor(db: Db, id: string): MonitorRecord | undefined {
   return row && decodeMonitor(row);
 }
 function decodeMonitor(row: MonitorRow): MonitorRecord {
-  return { ...JSON.parse(decrypt(row.config)) as MonitorInput, id: row.id, status: row.status,
+  return { group: '', archived: false, ...JSON.parse(decrypt(row.config)) as MonitorInput, id: row.id, status: row.status,
     failures: row.failures, successes: row.successes, lastCheckAt: row.last_check_at,
     nextCheckAt: row.next_check_at, leaseUntil: row.lease_until, revision: row.revision };
 }
 export function saveMonitor(db: Db, input: MonitorInput, id: string = randomUUID(), now = Date.now()): MonitorRecord {
   return db.transaction(() => {
     const previous = getMonitor(db, id);
+    if (input.archived) input = { ...input, enabled: false };
     db.prepare(`INSERT INTO monitors(id, config, next_check_at) VALUES (?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET config=excluded.config, next_check_at=excluded.next_check_at,
       lease_until=0, revision=revision+1`).run(id, encrypt(JSON.stringify(input)), now);
